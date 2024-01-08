@@ -5,6 +5,11 @@ import Joi from 'joi';
  */
 export interface Settings {
   /**
+   * If defined, place the schema to be processed in the shemaWrapper.schema 
+   * in the specified property (schemaWrapper.propertyName)
+   */
+  readonly schemaWrapper?: SchemaWrapper;
+  /**
    * The input/schema directory
    * Directory must exist
    */
@@ -151,6 +156,11 @@ export interface ConvertedType {
   location?: string;
 }
 
+export interface SchemaWrapper {
+  schema: Joi.Schema;
+  propertyName: string;
+}
+
 export interface BaseTypeContent {
   /**
    * Interface name or type name (from id/label or key name)
@@ -186,7 +196,13 @@ export interface TypeContentRoot extends BaseTypeContent {
   /**
    * How to join the children types together
    */
-  joinOperation: 'list' | 'tuple' | 'union' | 'intersection' | 'object' | 'objectWithUndefinedKeys';
+  joinOperation:
+    | 'list'
+    | 'tuple'
+    | 'union'
+    | 'intersection'
+    | 'object'
+    | 'objectWithUndefinedKeys';
 
   /**
    * Children types
@@ -217,7 +233,7 @@ export function makeTypeContentChild({
   required,
   isReadonly,
   interfaceOrTypeName,
-  jsDoc
+  jsDoc,
 }: Omit<TypeContentChild, '__isRoot'>): TypeContentChild {
   return {
     __isRoot: false,
@@ -226,7 +242,7 @@ export function makeTypeContentChild({
     required,
     interfaceOrTypeName,
     isReadonly,
-    jsDoc
+    jsDoc,
   };
 }
 
@@ -236,7 +252,7 @@ export function makeTypeContentRoot({
   children,
   required,
   isReadonly,
-  jsDoc
+  jsDoc,
 }: Omit<TypeContentRoot, '__isRoot'>): TypeContentRoot {
   return {
     __isRoot: true,
@@ -245,7 +261,7 @@ export function makeTypeContentRoot({
     children,
     required,
     isReadonly,
-    jsDoc
+    jsDoc,
   };
 }
 

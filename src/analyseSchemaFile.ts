@@ -13,15 +13,60 @@ export function convertSchemaInternal(
   exportedName?: string,
   rootSchema?: boolean
 ): ConvertedType | undefined {
+  // SchemaWrapper Changes Start
+
+  if (exportedName && exportedName.includes('Output')) {
+    if (settings.schemaWrapper) {
+      const schemaWrapperDetails =
+        settings.schemaWrapper.schema.describe() as Describe;
+      const schemaWrapperKeys = schemaWrapperDetails.keys;
+      if (
+        Object.keys(schemaWrapperKeys).includes(
+          settings.schemaWrapper.propertyName
+        )
+      ) {
+        const { schema, propertyName } = settings.schemaWrapper;
+
+        const objectKeys: Record<string, Joi.Schema> = {};
+
+        // Copy existing properties
+        Object.keys(schemaWrapperKeys).forEach((key: string) => {
+          objectKeys[key] = schema.extract(key);
+        });
+
+        // Add or replace the specified property
+        objectKeys[propertyName] = joi;
+
+        joi = Joi.object(objectKeys);
+      } else {
+        throw new Error(
+          `Property: ${
+            settings.schemaWrapper.propertyName
+          }, not found in SchemaWrapper ${JSON.stringify(schemaWrapperDetails)}`
+        );
+      }
+    }
+  }
+
+  // SchemaWrapper Changes End
   const details = joi.describe() as Describe;
 
-  const interfaceOrTypeName = getInterfaceOrTypeName(settings, details) || exportedName;
+  const interfaceOrTypeName =
+    getInterfaceOrTypeName(settings, details) || exportedName;
 
   if (!interfaceOrTypeName) {
     if (settings.useLabelAsInterfaceName) {
-      throw new Error(`At least one "object" does not have .label(''). Details: ${JSON.stringify(details)}`);
+      throw new Error(
+        `At least one "object" does not have .label(''). Details: ${JSON.stringify(
+          details
+        )}`
+      );
     } else {
-      throw new Error(`At least one "object" does not have .meta({className:''}). Details: ${JSON.stringify(details)}`);
+      throw new Error(
+        `At least one "object" does not have .meta({className:''}). Details: ${JSON.stringify(
+          details
+        )}`
+      );
     }
   }
 
@@ -47,7 +92,13 @@ export function convertSchemaInternal(
 
   ensureInterfaceorTypeName(settings, details, interfaceOrTypeName);
 
-  const parsedSchema = parseSchema(details, settings, false, undefined, rootSchema);
+  const parsedSchema = parseSchema(
+    details,
+    settings,
+    false,
+    undefined,
+    rootSchema
+  );
   if (parsedSchema) {
     const customTypes = getAllCustomTypes(parsedSchema);
     const content = typeContentToTs(settings, parsedSchema, true);
@@ -55,7 +106,7 @@ export function convertSchemaInternal(
       schema: joi,
       interfaceOrTypeName,
       customTypes,
-      content
+      content,
     };
   }
 
@@ -77,12 +128,17 @@ export async function analyseSchemaFile(
 ): Promise<undefined | GenerateTypeFile> {
   const allConvertedTypes: ConvertedType[] = [];
 
-  const fullFilePath = Path.resolve(Path.join(settings.schemaDirectory, schemaFileName));
+  const fullFilePath = Path.resolve(
+    Path.join(settings.schemaDirectory, schemaFileName)
+  );
   const schemaFile = await import(fullFilePath);
 
   // Create Type File Name
   const typeFileName = getTypeFileNameFromSchema(schemaFileName, settings);
-  const fullOutputFilePath = Path.join(settings.typeOutputDirectory, typeFileName);
+  const fullOutputFilePath = Path.join(
+    settings.typeOutputDirectory,
+    typeFileName
+  );
 
   for (const exportedName in schemaFile) {
     const joiSchema = schemaFile[exportedName];
@@ -90,9 +146,17 @@ export async function analyseSchemaFile(
     if (!Joi.isSchema(joiSchema)) {
       continue;
     }
-    const convertedType = convertSchemaInternal(settings, joiSchema, exportedName, true);
+    const convertedType = convertSchemaInternal(
+      settings,
+      joiSchema,
+      exportedName,
+      true
+    );
     if (convertedType) {
-      allConvertedTypes.push({ ...convertedType, location: fullOutputFilePath });
+      allConvertedTypes.push({
+        ...convertedType,
+        location: fullOutputFilePath,
+      });
     }
   }
 
@@ -112,26 +176,37 @@ export async function analyseSchemaFile(
   // Clean up type list
   // Sort Types
   const typesToBeWritten = allConvertedTypes.sort(
-    (interface1, interface2) => 0 - (interface1.interfaceOrTypeName > interface2.interfaceOrTypeName ? -1 : 1)
+    (interface1, interface2) =>
+      0 -
+      (interface1.interfaceOrTypeName > interface2.interfaceOrTypeName ? -1 : 1)
   );
 
   // Write types
-  const typeContent = typesToBeWritten.map(typeToBeWritten => {
+  const typeContent = typesToBeWritten.map((typeToBeWritten) => {
     const content = typeToBeWritten.content;
     return [
-      ...(settings.tsContentHeader ? [settings.tsContentHeader(typeToBeWritten)] : []),
+      ...(settings.tsContentHeader
+        ? [settings.tsContentHeader(typeToBeWritten)]
+        : []),
       content,
-      ...(settings.tsContentFooter ? [settings.tsContentFooter(typeToBeWritten)] : [])
+      ...(settings.tsContentFooter
+        ? [settings.tsContentFooter(typeToBeWritten)]
+        : []),
     ].join('\n');
   });
 
   // Get imports for the current file
   const allExternalTypes: ConvertedType[] = [];
-  const allCurrentFileTypeNames = typesToBeWritten.map(typeToBeWritten => typeToBeWritten.interfaceOrTypeName);
+  const allCurrentFileTypeNames = typesToBeWritten.map(
+    (typeToBeWritten) => typeToBeWritten.interfaceOrTypeName
+  );
 
   for (const typeToBeWritten of typesToBeWritten) {
     for (const customType of typeToBeWritten.customTypes) {
-      if (!allCurrentFileTypeNames.includes(customType) && !allExternalTypes.includes(typeToBeWritten)) {
+      if (
+        !allCurrentFileTypeNames.includes(customType) &&
+        !allExternalTypes.includes(typeToBeWritten)
+      ) {
         allExternalTypes.push(typeToBeWritten);
       }
     }
@@ -144,6 +219,6 @@ export async function analyseSchemaFile(
     internalTypes: typesToBeWritten,
     fileContent,
     typeFileName,
-    typeFileLocation: settings.typeOutputDirectory
+    typeFileLocation: settings.typeOutputDirectory,
   };
 }
