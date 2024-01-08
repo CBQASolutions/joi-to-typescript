@@ -15,7 +15,7 @@ export function convertSchemaInternal(
 ): ConvertedType | undefined {
   // SchemaWrapper Changes Start
 
-  if (exportedName && exportedName.includes('Output')) {
+  if (exportedName && exportedName.endsWith('Output')) {
     if (settings.schemaWrapper) {
       const schemaWrapperDetails =
         settings.schemaWrapper.schema.describe() as Describe;
